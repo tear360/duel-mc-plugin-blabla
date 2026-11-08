@@ -3,6 +3,7 @@ package fr.duelplugin.commands;
 import fr.duelplugin.DuelPlugin;
 import fr.duelplugin.managers.BanManager;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -48,12 +49,17 @@ public class TempBanCommand implements CommandExecutor {
             reason = sb.toString();
         }
 
-        Player target = Bukkit.getPlayer(targetName);
+        Player target = Bukkit.getPlayerExact(targetName);
         UUID uuid;
         if (target != null) {
             uuid = target.getUniqueId();
         } else {
-            uuid = Bukkit.getOfflinePlayer(targetName).getUniqueId();
+            OfflinePlayer offline = Bukkit.getOfflinePlayerIfCached(targetName);
+            if (offline == null) {
+                sender.sendMessage("§cPlayer not found. The player must have joined the server at least once.");
+                return true;
+            }
+            uuid = offline.getUniqueId();
         }
 
         String bannerName = sender instanceof Player ? sender.getName() : "Console";

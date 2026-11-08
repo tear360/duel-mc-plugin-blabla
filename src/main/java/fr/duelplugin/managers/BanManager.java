@@ -4,7 +4,6 @@ import fr.duelplugin.DuelPlugin;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -38,7 +37,7 @@ public class BanManager {
 
     // ─────── BANS ───────
 
-    public void ban(UUID uuid, String name, String reason, String banner, long durationMs) {
+    public synchronized void ban(UUID uuid, String name, String reason, String banner, long durationMs) {
         String path = uuid.toString();
         bansConfig.set(path + ".name", name);
         bansConfig.set(path + ".reason", reason != null ? reason : "");
@@ -48,12 +47,12 @@ public class BanManager {
         save(bansConfig, bansFile);
     }
 
-    public void unban(UUID uuid) {
+    public synchronized void unban(UUID uuid) {
         bansConfig.set(uuid.toString(), null);
         save(bansConfig, bansFile);
     }
 
-    public boolean isBanned(UUID uuid) {
+    public synchronized boolean isBanned(UUID uuid) {
         String path = uuid.toString();
         if (!bansConfig.contains(path)) return false;
         long duration = bansConfig.getLong(path + ".duration", -1);
@@ -67,23 +66,23 @@ public class BanManager {
         return true;
     }
 
-    public String getBanReason(UUID uuid) {
+    public synchronized String getBanReason(UUID uuid) {
         return bansConfig.getString(uuid.toString() + ".reason", "");
     }
 
-    public String getBanner(UUID uuid) {
+    public synchronized String getBanner(UUID uuid) {
         return bansConfig.getString(uuid.toString() + ".banner", "Unknown");
     }
 
-    public long getBanTimestamp(UUID uuid) {
+    public synchronized long getBanTimestamp(UUID uuid) {
         return bansConfig.getLong(uuid.toString() + ".timestamp", 0);
     }
 
-    public long getBanDuration(UUID uuid) {
+    public synchronized long getBanDuration(UUID uuid) {
         return bansConfig.getLong(uuid.toString() + ".duration", -1);
     }
 
-    public long getBanRemaining(UUID uuid) {
+    public synchronized long getBanRemaining(UUID uuid) {
         if (!isBanned(uuid)) return 0;
         long duration = getBanDuration(uuid);
         if (duration == -1) return -1;
@@ -93,7 +92,7 @@ public class BanManager {
 
     // ─────── MUTES ───────
 
-    public void mute(UUID uuid, String name, String reason, String muter, long durationMs) {
+    public synchronized void mute(UUID uuid, String name, String reason, String muter, long durationMs) {
         String path = uuid.toString();
         mutesConfig.set(path + ".name", name);
         mutesConfig.set(path + ".reason", reason != null ? reason : "");
@@ -103,12 +102,12 @@ public class BanManager {
         save(mutesConfig, mutesFile);
     }
 
-    public void unmute(UUID uuid) {
+    public synchronized void unmute(UUID uuid) {
         mutesConfig.set(uuid.toString(), null);
         save(mutesConfig, mutesFile);
     }
 
-    public boolean isMuted(UUID uuid) {
+    public synchronized boolean isMuted(UUID uuid) {
         String path = uuid.toString();
         if (!mutesConfig.contains(path)) return false;
         long duration = mutesConfig.getLong(path + ".duration", -1);
@@ -122,11 +121,11 @@ public class BanManager {
         return true;
     }
 
-    public String getMuteReason(UUID uuid) {
+    public synchronized String getMuteReason(UUID uuid) {
         return mutesConfig.getString(uuid.toString() + ".reason", "");
     }
 
-    public long getMuteRemaining(UUID uuid) {
+    public synchronized long getMuteRemaining(UUID uuid) {
         if (!isMuted(uuid)) return 0;
         long duration = mutesConfig.getLong(uuid.toString() + ".duration", -1);
         if (duration == -1) return -1;
@@ -177,7 +176,7 @@ public class BanManager {
         return seconds + "s";
     }
 
-    public Component buildBanScreen(UUID uuid) {
+    public synchronized Component buildBanScreen(UUID uuid) {
         String reason = getBanReason(uuid);
         String banner = getBanner(uuid);
         long duration = getBanDuration(uuid);
@@ -232,7 +231,7 @@ public class BanManager {
                 .append(line);
     }
 
-    private void save(FileConfiguration config, File file) {
+    private synchronized void save(FileConfiguration config, File file) {
         try {
             config.save(file);
         } catch (IOException e) {

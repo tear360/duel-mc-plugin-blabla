@@ -31,7 +31,11 @@ public class UnmuteCommand implements CommandExecutor {
         }
 
         String targetName = args[0];
-        OfflinePlayer offline = Bukkit.getOfflinePlayer(targetName);
+        OfflinePlayer offline = Bukkit.getOfflinePlayerIfCached(targetName);
+        if (offline == null) {
+            sender.sendMessage("§cPlayer not found in the server cache.");
+            return true;
+        }
         UUID uuid = offline.getUniqueId();
 
         if (!plugin.getBanManager().isMuted(uuid)) {

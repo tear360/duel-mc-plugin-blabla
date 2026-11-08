@@ -27,6 +27,8 @@ public class Arena {
     private final List<BlockSnapshot> originalBlocks;
     private boolean snapshotActive;
 
+    private static final long MAX_SNAPSHOT_VOLUME = 2_000_000L;
+
     public Arena(String name, DuelGameMode gameMode) {
         this.name = name;
         this.gameMode = gameMode;
@@ -120,11 +122,29 @@ public class Arena {
                 || x == minX || x == maxX || z == minZ || z == maxZ || y == minY || y == maxY;
     }
 
+    public boolean isSnapshotSizeAllowed() {
+        Location min = resolveMinCorner();
+        Location max = resolveMaxCorner();
+        if (min == null || max == null) return true;
+        long x = Math.abs((long) max.getBlockX() - min.getBlockX()) + 1;
+        long y = Math.abs((long) max.getBlockY() - min.getBlockY()) + 1;
+        long z = Math.abs((long) max.getBlockZ() - min.getBlockZ()) + 1;
+        try {
+            return Math.multiplyExact(Math.multiplyExact(x, y), z) <= MAX_SNAPSHOT_VOLUME;
+        } catch (ArithmeticException e) {
+            return false;
+        }
+    }
+
     public void takeSnapshot() {
         originalBlocks.clear();
         Location min = resolveMinCorner();
         Location max = resolveMaxCorner();
         if (min == null || max == null) return;
+        if (!isSnapshotSizeAllowed()) {
+            Bukkit.getLogger().warning("[DuelPlugin] Arena '" + name + "' exceeds the maximum snapshot volume; snapshot skipped.");
+            return;
+        }
         World world = min.getWorld();
         if (world == null) return;
 
