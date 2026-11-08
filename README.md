@@ -54,9 +54,13 @@ messages:
   default-language: "EN"
   prefix: "&8[&6Duel &ePlugin&8] &r"
 
-# Optional GitHub auto-update (owner/repo), token only for private repos
+# Optional GitHub update check (owner/repo), token only for private repos.
+# Automatic downloads are opt-in and saved to plugins/DuelPlugin/updates/
+# for manual installation. Set github-update-sha256 to verify the JAR.
 github-repo: ""
 github-token: ""
+github-auto-download: false
+github-update-sha256: ""
 
 # Discord bot (JDA)
 discord:
