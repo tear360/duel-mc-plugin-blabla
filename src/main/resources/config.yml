@@ -44,9 +44,17 @@ tab:
 # github-repo: "owner/repo" used to check GitHub for new
 #   releases. Leave empty to disable the update checker.
 # github-token: ONLY needed if the repository is private.
+#
+# When github-auto-download is enabled, release JARs are saved to
+# plugins/DuelPlugin/updates/. They are NEVER loaded automatically:
+# verify the file, install it manually, then restart the server.
+# github-update-sha256: optional SHA-256 of the release JAR. When set,
+#   the downloaded file is rejected if the checksum does not match.
 # ------------------------------------------------------------
 github-repo: ""
 github-token: ""
+github-auto-download: false
+github-update-sha256: ""
 
 # ------------------------------------------------------------
 # Discord
