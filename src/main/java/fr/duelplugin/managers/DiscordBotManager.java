@@ -24,6 +24,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.EnumSet;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Pattern;
 
 public class DiscordBotManager extends ListenerAdapter {
 
@@ -33,6 +34,12 @@ public class DiscordBotManager extends ListenerAdapter {
     private final String duelResultChannelId;
     private final String reportChannelId;
     private static final String CLOSE_EMOJI = "\u2705";
+
+    private static final int MAX_DISPLAY_NAME_LENGTH = 64;
+    private static final int MAX_REPORT_TEXT_LENGTH = 1000;
+    private static final Pattern CONTROL_CHARS = Pattern.compile("[\\p{Cntrl}&&[^\\n\\t]]");
+    private static final Pattern UNSAFE_NAME_CHARS = Pattern.compile("[^A-Za-z0-9_.-]");
+    private static final String MARKDOWN_SPECIAL = "\\*_~`|>";
 
     public DiscordBotManager(DuelPlugin plugin) {
         this.plugin = plugin;
@@ -87,13 +94,15 @@ public class DiscordBotManager extends ListenerAdapter {
                 channel.sendMessageEmbeds(new net.dv8tion.jda.api.EmbedBuilder()
                         .setTitle("\u2694 Duel Result")
                         .setColor(0x959066)
-                        .addField("\ud83c\udfc6 Winner", winnerName, true)
-                        .addField("\ud83d\udc80 Loser", loserName, true)
-                        .addField("\ud83c\udfae Mode", modeName, true)
+                        .addField("\ud83c\udfc6 Winner", sanitizeInline(winnerName), true)
+                        .addField("\ud83d\udc80 Loser", sanitizeInline(loserName), true)
+                        .addField("\ud83c\udfae Mode", sanitizeInline(modeName), true)
                         .addField("\u23f1 Duration", duration, true)
                         .setFooter(plugin.getServerName())
                         .setTimestamp(Instant.parse(timestamp))
-                        .build()).queue();
+                        .build())
+                        .setAllowedMentions(EnumSet.noneOf(Message.MentionType.class))
+                        .queue();
             } catch (Exception e) {
                 plugin.getLogger().warning("[Discord] Failed to send duel result: " + e.getMessage());
             }
@@ -110,18 +119,21 @@ public class DiscordBotManager extends ListenerAdapter {
                 ForumChannel forum = jda.getForumChannelById(bugReportChannelId);
                 if (forum == null) return;
 
-                String postName = "bug-" + playerName.toLowerCase() + "-" + System.currentTimeMillis();
+                String postName = "bug-" + sanitizeName(playerName) + "-" + System.currentTimeMillis();
+                String safePlayer = sanitizeInline(playerName);
+                String safeBug = sanitizeContent(bug);
 
                 MessageCreateData content = new MessageCreateBuilder()
-                        .addContent("\ud83d\udc1b **Bug report by " + playerName + "**\n\n" + bug)
+                        .addContent("\ud83d\udc1b **Bug report by " + safePlayer + "**\n\n" + safeBug)
                         .addEmbeds(new net.dv8tion.jda.api.EmbedBuilder()
                                 .setTitle("\ud83d\udc1b Bug Report")
                                 .setColor(0xFF0000)
-                                .addField("\ud83d\udc64 Player", playerName, true)
-                                .addField("\ud83d\udccb Bug", bug, false)
+                                .addField("\ud83d\udc64 Player", safePlayer, true)
+                                .addField("\ud83d\udccb Bug", safeBug, false)
                                 .setFooter(plugin.getServerName() + " - Bug Report")
                                 .setTimestamp(Instant.now())
                                 .build())
+                        .setAllowedMentions(EnumSet.noneOf(Message.MentionType.class))
                         .build();
 
                 forum.createForumPost(postName, content).queue(post ->
@@ -142,19 +154,23 @@ public class DiscordBotManager extends ListenerAdapter {
                 ForumChannel forum = jda.getForumChannelById(reportChannelId);
                 if (forum == null) return;
 
-                String postName = "report-" + reportedName.toLowerCase().replace(' ', '-') + "-" + reportId;
+                String postName = "report-" + sanitizeName(reportedName) + "-" + reportId;
+                String safeReporter = sanitizeInline(reporterName);
+                String safeReported = sanitizeInline(reportedName);
+                String safeReason = sanitizeContent(reason);
 
                 MessageCreateData content = new MessageCreateBuilder()
-                        .addContent("\ud83d\udcdd **Report #" + reportId + " by " + reporterName + "**\n\n" + reason)
+                        .addContent("\ud83d\udcdd **Report #" + reportId + " by " + safeReporter + "**\n\n" + safeReason)
                         .addEmbeds(new net.dv8tion.jda.api.EmbedBuilder()
                                 .setTitle("\ud83d\udcdd Report #" + reportId)
                                 .setColor(0xFFA500)
-                                .addField("\ud83d\udc64 Reported player", reportedName, true)
-                                .addField("\ud83d\udc64 Reported by", reporterName, true)
-                                .addField("\ud83d\udccb Reason", reason, false)
+                                .addField("\ud83d\udc64 Reported player", safeReported, true)
+                                .addField("\ud83d\udc64 Reported by", safeReporter, true)
+                                .addField("\ud83d\udccb Reason", safeReason, false)
                                 .setFooter(plugin.getServerName() + " - Report")
                                 .setTimestamp(Instant.now())
                                 .build())
+                        .setAllowedMentions(EnumSet.noneOf(Message.MentionType.class))
                         .build();
 
                 forum.createForumPost(postName, content).queue(post ->
@@ -172,7 +188,8 @@ public class DiscordBotManager extends ListenerAdapter {
         if (event.getUser() == null || event.getUser().isBot()) return;
         if (!event.getEmoji().equals(Emoji.fromUnicode(CLOSE_EMOJI))) return;
 
-        if (!event.getMember().hasPermission(net.dv8tion.jda.api.Permission.MANAGE_CHANNEL)) return;
+        net.dv8tion.jda.api.entities.Member member = event.getMember();
+        if (member == null || !member.hasPermission(net.dv8tion.jda.api.Permission.MANAGE_CHANNEL)) return;
 
         long channelId = event.getChannel().getIdLong();
 
@@ -185,7 +202,9 @@ public class DiscordBotManager extends ListenerAdapter {
                 boolean isBug = String.valueOf(parentId).equals(bugReportChannelId);
                 boolean isReport = String.valueOf(parentId).equals(reportChannelId);
                 if (isBug || isReport) {
-                    thread.sendMessage("\uD83D\uDEAB Report handled by **" + event.getUser().getName() + "**").queue();
+                    thread.sendMessage("\uD83D\uDEAB Report handled by **" + sanitizeInline(event.getUser().getName()) + "**")
+                            .setAllowedMentions(EnumSet.noneOf(Message.MentionType.class))
+                            .queue();
                     thread.getManager().setLocked(true).queue();
                     Bukkit.getScheduler().runTaskLater(plugin, () -> {
                         try {
@@ -200,6 +219,59 @@ public class DiscordBotManager extends ListenerAdapter {
     }
 
     // ─── UTILS ─────────────────────────────────────────────────
+
+    private String sanitizeName(String input) {
+        if (input == null) return "unknown";
+        String cleaned = UNSAFE_NAME_CHARS.matcher(input.trim()).replaceAll("-");
+        cleaned = cleaned.replaceAll("-{2,}", "-");
+        if (cleaned.isEmpty() || cleaned.equals("-")) cleaned = "unknown";
+        if (cleaned.length() > MAX_DISPLAY_NAME_LENGTH) {
+            cleaned = cleaned.substring(0, MAX_DISPLAY_NAME_LENGTH);
+        }
+        return cleaned;
+    }
+
+    private String sanitizeInline(String input) {
+        if (input == null) return "unknown";
+        String cleaned = CONTROL_CHARS.matcher(input).replaceAll("")
+                .replace('\r', ' ')
+                .replace('\n', ' ')
+                .trim();
+        cleaned = escapeMarkdown(defuseMentions(cleaned));
+        if (cleaned.isEmpty()) cleaned = "unknown";
+        if (cleaned.length() > MAX_DISPLAY_NAME_LENGTH) {
+            cleaned = cleaned.substring(0, MAX_DISPLAY_NAME_LENGTH);
+        }
+        return cleaned;
+    }
+
+    private String sanitizeContent(String input) {
+        if (input == null) return "(empty)";
+        String cleaned = input.replace("\r\n", "\n").replace('\r', '\n');
+        cleaned = CONTROL_CHARS.matcher(cleaned).replaceAll("");
+        cleaned = escapeMarkdown(defuseMentions(cleaned));
+        if (cleaned.isBlank()) cleaned = "(empty)";
+        if (cleaned.length() > MAX_REPORT_TEXT_LENGTH) {
+            cleaned = cleaned.substring(0, MAX_REPORT_TEXT_LENGTH) + "...";
+        }
+        return cleaned;
+    }
+
+    private String defuseMentions(String input) {
+        return input.replace("@", "@\u200B");
+    }
+
+    private String escapeMarkdown(String input) {
+        StringBuilder sb = new StringBuilder(input.length());
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            if (MARKDOWN_SPECIAL.indexOf(c) >= 0) {
+                sb.append('\\');
+            }
+            sb.append(c);
+        }
+        return sb.toString();
+    }
 
     private String formatDuration(long ms) {
         long seconds = ms / 1000;

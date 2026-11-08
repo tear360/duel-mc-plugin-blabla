@@ -8,12 +8,16 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class ReportCommand implements CommandExecutor, TabCompleter {
 
     private final DuelPlugin plugin;
+    private final Map<UUID, Long> cooldowns = new HashMap<>();
 
     public ReportCommand(DuelPlugin plugin) {
         this.plugin = plugin;
@@ -48,7 +52,27 @@ public class ReportCommand implements CommandExecutor, TabCompleter {
             if (reasonBuilder.length() > 0) reasonBuilder.append(" ");
             reasonBuilder.append(args[i]);
         }
-        String reason = reasonBuilder.toString();
+        String reason = sanitizeChat(reasonBuilder.toString());
+        int maxReasonLength = Math.max(1, plugin.getConfig().getInt("reports.max-reason-length", 250));
+        if (reason.length() > maxReasonLength) {
+            reason = reason.substring(0, maxReasonLength);
+        }
+        if (reason.isEmpty()) {
+            player.sendMessage(plugin.getLanguageManager().msg(player, "report_usage"));
+            return true;
+        }
+
+        long cooldownMs = Math.max(0, plugin.getConfig().getLong("reports.cooldown-seconds", 60)) * 1000L;
+        if (cooldownMs > 0 && !player.hasPermission("duelplugin.report.bypass")) {
+            long now = System.currentTimeMillis();
+            Long lastUse = cooldowns.get(player.getUniqueId());
+            if (lastUse != null && now - lastUse < cooldownMs) {
+                long remaining = (cooldownMs - (now - lastUse) + 999) / 1000;
+                player.sendMessage(plugin.getLanguageManager().msg(player, "report_cooldown", "%time%", formatRemaining(remaining)));
+                return true;
+            }
+            cooldowns.put(player.getUniqueId(), now);
+        }
 
         int id = plugin.getReportManager().createReport(player.getName(), reported.getName(), reason);
         plugin.getDiscordBotManager().createReportForumPost(player.getName(), reported.getName(), reason, id);
@@ -68,5 +92,18 @@ public class ReportCommand implements CommandExecutor, TabCompleter {
             }
         }
         return completions;
+    }
+
+    private String sanitizeChat(String input) {
+        return input.replaceAll("[\\p{Cntrl}]", " ")
+                .replace('\u00A7', '&')
+                .replaceAll(" {2,}", " ")
+                .trim();
+    }
+
+    private String formatRemaining(long seconds) {
+        long minutes = seconds / 60;
+        long secs = seconds % 60;
+        return minutes > 0 ? minutes + "m " + secs + "s" : secs + "s";
     }
 }

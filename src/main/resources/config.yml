@@ -68,3 +68,15 @@ discord:
   duel-result-channel-id: ""
   # ID of the forum channel used for /report.
   report-channel-id: ""
+
+# ------------------------------------------------------------
+# Reports / bug reports
+# ------------------------------------------------------------
+reports:
+  # Cooldown between two /report submissions (seconds).
+  cooldown-seconds: 60
+  # Cooldown between two /bugreport submissions (seconds).
+  bug-cooldown-seconds: 3600
+  # Maximum length of a report reason / bug description.
+  max-reason-length: 250
+  max-bug-length: 1000
