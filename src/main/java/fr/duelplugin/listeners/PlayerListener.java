@@ -108,6 +108,14 @@ public class PlayerListener implements Listener {
         }
 
         Player killer = player.getKiller();
+        if (killer != null) {
+            var killerDuel = plugin.getDuelManager().getDuel(killer.getUniqueId());
+            boolean sameDuel = killerDuel != null && (duel.isFFA()
+                    ? killerDuel.isFFA() && java.util.Objects.equals(duel.getFFAId(), killerDuel.getFFAId())
+                    : killer.getUniqueId().equals(duel.getOpponent(player.getUniqueId())));
+            if (!sameDuel) killer = null;
+        }
+
         if (killer == null) {
             killer = plugin.getServer().getPlayer(duel.getOpponent(player.getUniqueId()));
         }

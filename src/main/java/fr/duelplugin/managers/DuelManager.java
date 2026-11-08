@@ -121,6 +121,13 @@ public class DuelManager {
     }
 
     public void startDuel(Player player1, Player player2, DuelGameMode mode, Arena arena) {
+        if (arena != null && arena.canInteractBlocks() && !arena.isSnapshotSizeAllowed()) {
+            String msg = "§cThis arena is too large to snapshot. Ask an admin to reduce its bounds.";
+            player1.sendMessage(msg);
+            player2.sendMessage(msg);
+            return;
+        }
+
         saveInventory(player1);
         saveInventory(player2);
 
@@ -187,6 +194,11 @@ public class DuelManager {
     }
 
     public void startBotDuel(Player player1, UUID botUuid, Arena arena) {
+        if (arena != null && arena.canInteractBlocks() && !arena.isSnapshotSizeAllowed()) {
+            player1.sendMessage("§cThis arena is too large to snapshot. Ask an admin to reduce its bounds.");
+            return;
+        }
+
         saveInventory(player1);
 
         if (arena != null && arena.canInteractBlocks()) {
@@ -673,6 +685,11 @@ public class DuelManager {
             arena = plugin.getArenaManager().getAvailableArena(mode);
         }
 
+        if (arena != null && arena.canInteractBlocks() && !arena.isSnapshotSizeAllowed()) {
+            leader.sendMessage("§cThis arena is too large to snapshot. Ask an admin to reduce its bounds.");
+            return;
+        }
+
         if (arena != null && arena.canInteractBlocks()) {
             arena.takeSnapshot();
         }
@@ -694,7 +711,7 @@ public class DuelManager {
             int idx = online.indexOf(p);
             double angle = 2 * Math.PI * idx / online.size();
             Location spawn = spawnBase.clone().add(Math.cos(angle) * 3, 0, Math.sin(angle) * 3);
-            if (!arena.isSetup()) {
+            if (arena == null || !arena.isSetup()) {
                 spawn = spawnBase.clone().add(idx * 2 - online.size(), 0, 0);
             }
 

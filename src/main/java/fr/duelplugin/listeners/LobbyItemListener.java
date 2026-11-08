@@ -18,6 +18,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.inventory.meta.trim.TrimMaterial;
 import org.bukkit.inventory.meta.trim.TrimPattern;
 
@@ -440,17 +441,25 @@ public class LobbyItemListener implements Listener {
             plugin.getPartyGUI().openPartyMenu(player);
             return;
         }
-        if (item.getType() == Material.PLAYER_HEAD) {
-            for (UUID m : plugin.getPartyManager().getParty(player.getUniqueId()).getMembers()) {
-                Player member = org.bukkit.Bukkit.getPlayer(m);
-                if (member != null) {
-                    plugin.getPartyManager().kickPlayer(player, member);
-                    player.sendMessage(plugin.getLanguageManager().msg(player, "party_kicked_broadcast", "%player%", member.getName()));
-                    plugin.getPartyGUI().openPartyMenu(player);
-                    return;
-                }
-            }
+        if (item.getType() != Material.PLAYER_HEAD) return;
+
+        fr.duelplugin.managers.PartyManager.Party party = plugin.getPartyManager().getParty(player.getUniqueId());
+        if (party == null) {
+            player.closeInventory();
+            return;
         }
+
+        UUID targetUuid = getHeadOwner(item);
+        if (targetUuid == null || targetUuid.equals(player.getUniqueId()) || !party.getMembers().contains(targetUuid)) {
+            return;
+        }
+
+        Player member = Bukkit.getPlayer(targetUuid);
+        if (member == null) return;
+
+        plugin.getPartyManager().kickPlayer(player, member);
+        player.sendMessage(plugin.getLanguageManager().msg(player, "party_kicked_broadcast", "%player%", member.getName()));
+        plugin.getPartyGUI().openPartyMenu(player);
     }
 
     private void handleTransferClick(InventoryClickEvent event, Player player) {
@@ -462,17 +471,33 @@ public class LobbyItemListener implements Listener {
             plugin.getPartyGUI().openPartyMenu(player);
             return;
         }
-        if (item.getType() == Material.PLAYER_HEAD) {
-            for (UUID m : plugin.getPartyManager().getParty(player.getUniqueId()).getMembers()) {
-                Player member = org.bukkit.Bukkit.getPlayer(m);
-                if (member != null) {
-                    plugin.getPartyManager().transferLeadership(player, member);
-                    player.closeInventory();
-                    player.sendMessage(plugin.getLanguageManager().msg(player, "party_transfer", "%player%", member.getName()));
-                    return;
-                }
-            }
+        if (item.getType() != Material.PLAYER_HEAD) return;
+
+        fr.duelplugin.managers.PartyManager.Party party = plugin.getPartyManager().getParty(player.getUniqueId());
+        if (party == null) {
+            player.closeInventory();
+            return;
         }
+
+        UUID targetUuid = getHeadOwner(item);
+        if (targetUuid == null || targetUuid.equals(player.getUniqueId()) || !party.getMembers().contains(targetUuid)) {
+            return;
+        }
+
+        Player member = Bukkit.getPlayer(targetUuid);
+        if (member == null) return;
+
+        plugin.getPartyManager().transferLeadership(player, member);
+        player.closeInventory();
+        player.sendMessage(plugin.getLanguageManager().msg(player, "party_transfer", "%player%", member.getName()));
+    }
+
+    private UUID getHeadOwner(ItemStack item) {
+        ItemMeta meta = item.getItemMeta();
+        if (meta instanceof SkullMeta skullMeta && skullMeta.getOwningPlayer() != null) {
+            return skullMeta.getOwningPlayer().getUniqueId();
+        }
+        return null;
     }
 
     private void handleFFAClick(InventoryClickEvent event, Player player) {

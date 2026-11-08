@@ -57,12 +57,16 @@ public class BanCommand implements CommandExecutor {
             reason = sb.toString();
         }
 
-        Player target = Bukkit.getPlayer(targetName);
+        Player target = Bukkit.getPlayerExact(targetName);
         UUID uuid;
         if (target != null) {
             uuid = target.getUniqueId();
         } else {
-            OfflinePlayer offline = Bukkit.getOfflinePlayer(targetName);
+            OfflinePlayer offline = Bukkit.getOfflinePlayerIfCached(targetName);
+            if (offline == null) {
+                sender.sendMessage("§cPlayer not found. The player must have joined the server at least once.");
+                return true;
+            }
             uuid = offline.getUniqueId();
         }
 

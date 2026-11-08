@@ -362,6 +362,7 @@ public class DuelAdminCommand implements CommandExecutor, TabCompleter, Listener
     @EventHandler
     public void onReportGUIClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (!player.hasPermission("duelplugin.admin.report")) return;
         String title = event.getView().getTitle();
         if (!title.contains("Reports")) return;
         event.setCancelled(true);
