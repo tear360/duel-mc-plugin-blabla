@@ -105,7 +105,7 @@ public class DuelBotManager extends SimplePacketListenerAbstract implements List
 
             event.setCancelled(true);
             UUID attackerUuid = event.getUser().getUUID();
-            if (!playerUuid.equals(attackerUuid)) return;
+            if (attackerUuid == null || !playerUuid.equals(attackerUuid)) return;
 
             Bukkit.getScheduler().runTask(plugin, () -> handlePlayerAttack(playerUuid, entityId));
         } catch (Exception ignored) {
@@ -162,6 +162,12 @@ public class DuelBotManager extends SimplePacketListenerAbstract implements List
         Arena arena = plugin.getArenaManager().getAvailableArena(DuelGameMode.SWORD);
         if (arena == null) {
             player.sendMessage(plugin.getLanguageManager().msg(player, "queue_no_arena", "%mode%", DuelGameMode.SWORD.getDisplayName()));
+            return false;
+        }
+
+        Location botSpawn = arena.resolveSpawn2();
+        if (botSpawn == null || botSpawn.getWorld() == null) {
+            player.sendMessage("§cThis arena has no valid spawn 2 for the bot.");
             return false;
         }
 
