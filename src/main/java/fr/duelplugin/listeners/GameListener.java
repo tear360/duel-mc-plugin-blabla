@@ -3,11 +3,15 @@ package fr.duelplugin.listeners;
 import fr.duelplugin.DuelPlugin;
 import fr.duelplugin.managers.DuelManager;
 import fr.duelplugin.models.DuelGameMode;
-import org.bukkit.GameMode;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
+import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
@@ -16,6 +20,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.FoodLevelChangeEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.projectiles.ProjectileSource;
 
 import java.util.UUID;
 import java.util.Set;
@@ -81,7 +86,8 @@ public class GameListener implements Listener {
     @EventHandler
     public void onDamage(EntityDamageByEntityEvent event) {
         if (!(event.getEntity() instanceof Player victim)) return;
-        if (!(event.getDamager() instanceof Player attacker)) return;
+        Player attacker = resolvePlayerDamager(event.getDamager());
+        if (attacker == null) return;
 
         if (plugin.getDuelManager().isFrozen(victim) || plugin.getDuelManager().isFrozen(attacker)) {
             event.setCancelled(true);
@@ -98,7 +104,14 @@ public class GameListener implements Listener {
 
         boolean isFFA = duel.isFFA();
 
-        if (!isFFA) {
+        if (isFFA) {
+            var victimDuel = plugin.getDuelManager().getDuel(victim.getUniqueId());
+            if (victimDuel == null || !victimDuel.isFFA()
+                    || !duel.getFFAId().equals(victimDuel.getFFAId())) {
+                event.setCancelled(true);
+                return;
+            }
+        } else {
             UUID uuid1 = duel.getPlayer1();
             UUID uuid2 = duel.getPlayer2();
             boolean validFight = (attacker.getUniqueId().equals(uuid1) && victim.getUniqueId().equals(uuid2)) ||
@@ -209,6 +222,18 @@ public class GameListener implements Listener {
                 player.teleport(event.getFrom());
             }
         }
+    }
+
+    private Player resolvePlayerDamager(Entity damager) {
+        if (damager instanceof Player player) return player;
+        if (damager instanceof Projectile projectile) {
+            ProjectileSource shooter = projectile.getShooter();
+            if (shooter instanceof Player player) return player;
+        }
+        if (damager instanceof TNTPrimed tnt && tnt.getSource() instanceof Player player) {
+            return player;
+        }
+        return null;
     }
 
     private Location getDuelCenter(DuelManager.ActiveDuel duel) {
